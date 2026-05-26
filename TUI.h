@@ -749,7 +749,6 @@ fn _TUI_start( byte const ref const window_name, n2x2 const window_size, n2 cons
 	}
 	else
 	{
-		program.cli = no;
 		TUI.window_ref = program_make_window_ref( window_name, window_size, nothing, _TUI_window_tick );
 	}
 
