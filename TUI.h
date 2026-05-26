@@ -702,9 +702,15 @@ fn TUI_click_buttons( byte const ref const ref const inputs, i4 const inputs_cou
 
 embed out_state TUI_command( byte const ref const command, flag const detach )
 {
-	_program_process_events();
-	out_state const state = pick( TUI.cli, command( command ), command_silent( command, detach ) );
-	out state;
+	if( TUI.cli is yes )
+	{
+		out command( command );
+	}
+	else
+	{
+		_program_process_events();
+		out command_silent( command, detach );
+	}
 }
 #define TUI_command( COMMAND, DETACH... ) TUI_command( COMMAND, DEFAULT( no, DETACH ) )
 
