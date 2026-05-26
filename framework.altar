@@ -1,0 +1,75 @@
+properties
+	H-language/TUI
+	0.1.0
+
+libraries
+	H-language/H
+	H-language/C7H16
+	ENDESGA/pep
+
+Linux
+	-lm
+	-lX11
+	-lXrender
+
+Windows
+	-luser32
+	-lgdi32
+	-lwinmm
+	-mwindows
+
+example
+`
+#include <TUI.h>
+
+group( app_state )
+{
+	app_state_start,
+	app_state_hello,
+
+	app_states_count
+};
+
+global
+{
+	app_state state;
+}
+app;
+
+fn app_set_state_start()
+{
+	app.state = app_state_start;
+	TUI_reprint();
+}
+
+fn app_set_state_hello()
+{
+	app.state = app_state_hello;
+	TUI_reprint();
+}
+
+fn app_print()
+{
+	with( app.state )
+	{
+		when( app_state_start )
+		{
+			TUI_print_button( "CLICK-ME!", app_set_state_hello );
+			skip;
+		}
+
+		when( app_state_hello )
+		{
+			TUI_print( "<m>Hello <y>World<c>!<w>" );
+			TUI_newline();
+			TUI_print_button( "back", app_set_state_start );
+			skip;
+		}
+	}
+}
+
+start
+{
+	TUI_start( "test", n2x2( 640, 480 ), 3, app_print );
+}
+`
