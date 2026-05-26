@@ -156,6 +156,7 @@ global
 	n1 y bits( TUI_max_lines );
 	flag redraw bits_flag;
 	flag reprint bits_flag;
+	flag cli bits_flag;
 }
 TUI;
 
@@ -702,7 +703,7 @@ fn TUI_click_buttons( byte const ref const ref const inputs, i4 const inputs_cou
 embed out_state TUI_command( byte const ref const command, flag const detach )
 {
 	_program_process_events();
-	out_state const state = pick( program.cli, command( command ), command_silent( command, detach ) );
+	out_state const state = pick( TUI.cli, command( command ), command_silent( command, detach ) );
 	out state;
 }
 #define TUI_command( COMMAND, DETACH... ) TUI_command( COMMAND, DEFAULT( no, DETACH ) )
@@ -731,7 +732,7 @@ fn _TUI_start( byte const ref const window_name, n2x2 const window_size, n2 cons
 
 	if( _start_inputs_count > 0 and bytes_match( _start_inputs[ 0 ], "cli\0" ) )
 	{
-		program.cli = yes;
+		TUI.cli = yes;
 
 		_start_inputs += 1; // skip the input
 		_start_inputs_count -= 1;
@@ -749,7 +750,7 @@ fn _TUI_start( byte const ref const window_name, n2x2 const window_size, n2 cons
 	}
 	else
 	{
-		program.cli = no;
+		TUI.cli = no;
 		TUI.window_ref = program_make_window_ref( window_name, window_size, nothing, _TUI_window_tick );
 	}
 
@@ -770,7 +771,7 @@ fn _TUI_start( byte const ref const window_name, n2x2 const window_size, n2 cons
 		TUI_click_buttons( _start_inputs, _start_inputs_count );
 	}
 
-	if( program.cli is yes )
+	if( TUI.cli is yes )
 	{
 		#if OS_WINDOWS
 			fflush( stdout );
