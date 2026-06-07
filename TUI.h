@@ -156,6 +156,7 @@ global
 	n1 y bits( TUI_max_lines );
 	flag redraw bits_flag;
 	flag reprint bits_flag;
+	flag changed bits_flag;
 	flag cli bits_flag;
 }
 TUI;
@@ -182,19 +183,20 @@ fn _TUI_set_byte( TUI_byte const tui_byte, flag const is_hovered )
 	out_if( tui_byte.byte is ' ' and tui_byte.back is TUI_color_none and is_hovered is no );
 
 	i2x2 const font_size = to_i2x2( TUI.font_main.letter_size );
-	i2x2 const pos = i2x2( tui_byte.x * font_size.w, tui_byte.y * font_size.h );
+	i2 const pos_x = tui_byte.x * font_size.w;
+	i2 const pos_y = tui_byte.y * font_size.h;
 
 	TUI_color const fore = pick( is_hovered, tui_byte.back, tui_byte.fore );
 	TUI_color const back = pick( is_hovered, pick( tui_byte.fore is TUI_color_none, TUI_color_white, tui_byte.fore ), tui_byte.back );
 
 	if( back isnt TUI_color_none )
 	{
-		fill_area( pos, i2x2_add( pos, i2x2_sub_i2( font_size, 1 ) ), _TUI_colors[ back ] );
+		fill_area( pos_x, pos_y, pos_x + font_size.w - 1, pos_y + font_size.h - 1, _TUI_colors[ back ] );
 	}
 
 	out_if( tui_byte.byte is ' ' );
 
-	set_byte( TUI.font_main, tui_byte.byte, pos, anchor_left_top, _TUI_colors[ fore ] );
+	set_byte( TUI.font_main, tui_byte.byte, pos_x, pos_y, anchor_left_top, _TUI_colors[ fore ] );
 }
 
 fn _TUI_view_draw( view ref const view_ref )
@@ -215,7 +217,7 @@ fn _TUI_view_draw( view ref const view_ref )
 
 		if( has_hover )
 		{
-			fill_area( i2x2( hover_button.x * font_size.w, hover_button.y * font_size.h ), i2x2( ( hover_x_end * font_size.w ) - 1, ( ( hover_button.y + 1 ) * font_size.h ) - 1 ), pixel_white );
+			fill_area( hover_button.x * font_size.w, hover_button.y * font_size.h, ( hover_x_end * font_size.w ) - 1, ( ( hover_button.y + 1 ) * font_size.h ) - 1, pixel_white );
 		}
 	}
 	else
@@ -229,7 +231,7 @@ fn _TUI_view_draw( view ref const view_ref )
 
 			if( has_old )
 			{
-				fill_area( i2x2( old_button_ref->x * font_size.w, old_button_ref->y * font_size.h ), i2x2( ( old_x_end * font_size.w ) - 1, ( ( old_button_ref->y + 1 ) * font_size.h ) -1 ), pixel_black );
+				fill_area( old_button_ref->x * font_size.w, old_button_ref->y * font_size.h, ( old_x_end * font_size.w ) - 1, ( ( old_button_ref->y + 1 ) * font_size.h ) - 1, pixel_black );
 
 				n2 const button_start = TUI.row_start[ old_button_ref->y ];
 				n2 const button_end = TUI.row_start[ old_button_ref->y + 1 ];
@@ -245,7 +247,7 @@ fn _TUI_view_draw( view ref const view_ref )
 
 			if( has_hover )
 			{
-				fill_area( i2x2( hover_button.x * font_size.w, hover_button.y * font_size.h ), i2x2( ( hover_x_end * font_size.w ) -1, ( ( hover_button.y + 1 ) * font_size.h ) -1 ), pixel_white );
+				fill_area( hover_button.x * font_size.w, hover_button.y * font_size.h, ( hover_x_end * font_size.w ) - 1, ( ( hover_button.y + 1 ) * font_size.h ) - 1, pixel_white );
 
 				n2 const s = TUI.row_start[ hover_button.y ];
 				n2 const e = TUI.row_start[ hover_button.y + 1 ];
@@ -263,7 +265,7 @@ fn _TUI_view_draw( view ref const view_ref )
 		}
 		else if( TUI.update_start > TUI.bytes_count - 1 )
 		{
-			fill_area( i2x2( TUI.x * font_size.w, TUI.y * font_size.h ), i2x2( ( ( TUI.x + ( TUI.update_start - TUI.bytes_count ) ) * font_size.w ) -1, ( ( TUI.y + 1 ) * font_size.h ) -1 ), pixel_black );
+			fill_area( TUI.x * font_size.w, TUI.y * font_size.h, ( ( TUI.x + ( TUI.update_start - TUI.bytes_count ) ) * font_size.w ) - 1, ( ( TUI.y + 1 ) * font_size.h ) - 1, pixel_black );
 		}
 	}
 
@@ -291,11 +293,18 @@ fn _TUI_set_scale( r4 const scale )
 
 fn _TUI_print_byte( byte const byte )
 {
-	TUI.bytes[ TUI.bytes_count ].byte = byte;
-	TUI.bytes[ TUI.bytes_count ].fore = TUI.fore;
-	TUI.bytes[ TUI.bytes_count ].back = TUI.back;
-	TUI.bytes[ TUI.bytes_count ].x = TUI.x;
-	TUI.bytes[ TUI.bytes_count ].y = TUI.y;
+	TUI_byte ref const byte_ref = ref_of( TUI.bytes[ TUI.bytes_count ] );
+
+	if( TUI.changed is no and ( byte_ref->byte isnt byte or byte_ref->fore isnt TUI.fore or byte_ref->back isnt TUI.back or byte_ref->x isnt TUI.x or byte_ref->y isnt TUI.y ) )
+	{
+		TUI.changed = yes;
+	}
+
+	byte_ref->byte = byte;
+	byte_ref->fore = TUI.fore;
+	byte_ref->back = TUI.back;
+	byte_ref->x = TUI.x;
+	byte_ref->y = TUI.y;
 	TUI.bytes_count += 1;
 	TUI.row_start[ TUI.y + 1 ] = TUI.bytes_count;
 	TUI.x += 1;
@@ -462,8 +471,16 @@ fn _TUI_clear()
 
 fn _TUI_call_reprint()
 {
+	n2 const old_count = TUI.bytes_count;
+	TUI.changed = no;
 	_TUI_clear();
 	call( TUI.fn_print );
+
+	if( TUI.bytes_count isnt old_count )
+	{
+		TUI.changed = yes;
+	}
+
 	TUI.reprint = no;
 }
 
@@ -474,39 +491,11 @@ fn _TUI_call_reprint()
 
 fn _TUI_window_tick( window ref const window_ref )
 {
+	flag update = no;
+
 	if( program.fps > 0 )
 	{
 		TUI.reprint = yes;
-	}
-
-	n2x2 const mouse_cell = to_n2x2( r4x2_div( TUI.view_ref->mouse, to_r4x2( TUI.font_main.letter_size ) ) );
-	n1 new_hover = TUI.button_count;
-
-	flag update = no;
-
-	iter( button_id, TUI.button_count )
-	{
-		TUI_button const ref const b = ref_of( TUI.buttons[ button_id ] );
-		if( mouse_cell.y is b->y and mouse_cell.x >= b->x and mouse_cell.x < b->x + b->size )
-		{
-			new_hover = button_id;
-			skip;
-		}
-	}
-
-	if( new_hover isnt TUI.hover_target )
-	{
-		TUI.hover_target = new_hover;
-		update = yes;
-	}
-
-	if( TUI.hover_target < TUI.button_count )
-	{
-		window_ref_set_cursor( window_ref, cursor_hand );
-	}
-	else if( update is yes )
-	{
-		window_ref_set_cursor( window_ref, cursor_arrow );
 	}
 
 	// input
@@ -514,6 +503,7 @@ fn _TUI_window_tick( window ref const window_ref )
 	if( input_pressed( keyboard_f11 ) )
 	{
 		window_ref_toggle_fullscreen( window_ref );
+		TUI.reprint = yes;
 	}
 
 	if( input_held( keyboard_ctrl ) )
@@ -626,13 +616,47 @@ fn _TUI_window_tick( window ref const window_ref )
 		update = yes;
 	}
 
-	//
-
 	if( TUI.reprint is yes )
 	{
 		_TUI_call_reprint();
 		TUI.input_bytes_count = 0;
+
+		if( TUI.changed )
+		{
+			update = yes;
+		}
+		else
+		{
+			TUI.redraw = no;
+		}
+	}
+
+	n2x2 const mouse_cell = to_n2x2( r4x2_div( TUI.view_ref->mouse, to_r4x2( TUI.font_main.letter_size ) ) );
+	n1 new_hover = TUI.button_count;
+
+	iter( button_id, TUI.button_count )
+	{
+		TUI_button const ref const b = ref_of( TUI.buttons[ button_id ] );
+		if( mouse_cell.y is b->y and mouse_cell.x >= b->x and mouse_cell.x < b->x + b->size )
+		{
+			new_hover = button_id;
+			skip;
+		}
+	}
+
+	if( new_hover isnt TUI.hover_target )
+	{
+		TUI.hover_target = new_hover;
 		update = yes;
+	}
+
+	if( TUI.hover_target < TUI.button_count )
+	{
+		window_ref_set_cursor( window_ref, cursor_hand );
+	}
+	else if( update is yes )
+	{
+		window_ref_set_cursor( window_ref, cursor_arrow );
 	}
 
 	if( update )
